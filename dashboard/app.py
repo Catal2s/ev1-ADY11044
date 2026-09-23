@@ -243,8 +243,13 @@ with tab_resumen:
         st.plotly_chart(estilo(fig, 'Películas vs series', 'Porcentaje de títulos bien evaluados por tipo'),
                         width='stretch')
 
-    st.caption(f'Se consideran solo títulos con al menos {min_votos} votos. '
-               'Un título con varios géneros cuenta en cada uno de ellos.')
+    nota = (f'Se consideran solo títulos con al menos {min_votos} votos. '
+            'Un título con varios géneros cuenta en cada uno de ellos.')
+    if opcion_tipo == 'Ambos':
+        nota += ('  Los porcentajes por género incluyen películas y series; como las series se '
+                 'evalúan más alto, los valores son mayores que en el análisis del notebook '
+                 '(solo películas). Elige "Solo películas" para comparar directamente.')
+    st.caption(nota)
 
 # ---------------- Géneros en detalle ----------------
 with tab_generos:
@@ -348,7 +353,10 @@ with tab_titulos:
                .rename(columns={'title': 'Título', 'tipo': 'Tipo', 'release_year': 'Año',
                                 'generos_texto': 'Géneros', 'idioma': 'Idioma',
                                 'rating': 'Rating', 'vote_count': 'Votos'}))
-    st.dataframe(ranking.head(100), width='stretch', hide_index=True,
-                 column_config={'Rating': st.column_config.ProgressColumn(
-                     'Rating', min_value=0, max_value=10, format='%.1f')})
-    st.caption(f'Mostrando los {fmt(min(len(ranking), 100))} mejores de {fmt(len(ranking))} títulos.')
+    if ranking.empty:
+        st.info('Ningún título coincide con la búsqueda.')
+    else:
+        st.dataframe(ranking.head(100), width='stretch', hide_index=True,
+                     column_config={'Rating': st.column_config.ProgressColumn(
+                         'Rating', min_value=0, max_value=10, format='%.1f')})
+        st.caption(f'Mostrando los {fmt(min(len(ranking), 100))} mejores de {fmt(len(ranking))} títulos.')

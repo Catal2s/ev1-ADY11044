@@ -38,9 +38,17 @@ No hay que cambiar rutas: el notebook y el dashboard buscan los CSV en `data/` a
 
 Variables principales: título, tipo, géneros, año de estreno, idioma, rating (0 a 10), cantidad de votos y popularidad.
 
-Limpieza aplicada: los ratings en 0 se tratan como faltantes (son títulos sin votos), se eliminan duplicados por `show_id`, se descartan columnas vacías o repetidas (`duration`, `vote_average`) y para el análisis de calidad solo se usan títulos con al menos 50 votos.
+Limpieza aplicada: los ratings en 0 se tratan como faltantes (son títulos sin votos), se eliminan duplicados por `show_id`, se descartan columnas vacías o repetidas (`duration`, `vote_average`) y para el análisis de calidad solo se usan títulos con al menos 50 votos. El dashboard además deja fuera `budget`, `revenue` y `date_added`, que no se usan en ninguna de sus vistas.
 
 ## Contenido del dashboard
+
+![Pestaña Resumen del dashboard](images/dashboard_resumen.png)
+
+> **Por qué los porcentajes por género no calzan con el notebook.** El notebook analiza los géneros usando
+> solo películas, mientras que el dashboard por defecto mezcla películas y series. Como las series se evalúan
+> bastante más alto (82% con rating ≥ 7, contra 26% de las películas), los porcentajes por género del dashboard
+> salen mayores: Animación aparece con ~70% en el dashboard y con 55% en el notebook. Eligiendo **Solo películas**
+> en el filtro de tipo de contenido, los valores coinciden con los del análisis.
 
 - Filtros por tipo, año, género, idioma y mínimo de votos.
 - KPIs: títulos en la selección, rating mediano, % de títulos bien evaluados (rating ≥ 7) y votos totales, comparados contra el catálogo completo.

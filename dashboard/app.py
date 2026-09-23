@@ -294,7 +294,12 @@ with tab_generos:
         fig = px.box(datos_box, x='rating', y='genero', color='genero', color_discrete_map=mapa,
                      category_orders={'genero': orden}, points='outliers',
                      hover_data={'title': True, 'genero': False})
-        fig.update_traces(marker=dict(size=3, opacity=0.35), line=dict(width=1.3))
+        # hoveron='points': el recuadro aparece solo en los atípicos (con el título),
+        # no en las cajas, que mostraban min/q1/median/q3/max encimados y en inglés
+        fig.update_traces(marker=dict(size=3, opacity=0.35), line=dict(width=1.3),
+                          hoveron='points',
+                          # customdata[0] es el title que inyecta px.box vía hover_data
+                          hovertemplate='<b>%{customdata[0]}</b><br>Rating: %{x}<extra></extra>')
         linea_referencia(fig, filtro['rating'].median(), f'Mediana selección: {fmt(filtro["rating"].median(), 1)}')
         fig.update_xaxes(title='Rating (0–10)', range=[1, 10])
         fig.update_yaxes(title=None)
@@ -304,14 +309,27 @@ with tab_generos:
                                'Distribución del rating por género, ordenado por mediana', alto=560),
                         width='stretch')
 
+        st.caption('Cada caja muestra el 50% central de los títulos y la línea interior es la '
+                   'mediana. Pasa el mouse sobre los puntos sueltos para ver qué título es; '
+                   'los valores exactos están en la tabla de abajo.')
+
         tabla = (datos_box.groupby('genero')['rating']
                  .agg(Títulos='size', Mediana='median',
                       Q1=lambda x: x.quantile(0.25), Q3=lambda x: x.quantile(0.75),
-                      **{'% ≥ 7': lambda x: (x >= UMBRAL_BUENO).mean() * 100})
+                      **{'pct': lambda x: (x >= UMBRAL_BUENO).mean() * 100})
                  .loc[orden])
-        tabla['Rango intercuartil'] = tabla['Q3'] - tabla['Q1']
+        tabla['iqr'] = tabla['Q3'] - tabla['Q1']
+        tabla = tabla.rename(columns={'Q1': 'Cuartil 1', 'Q3': 'Cuartil 3',
+                                      'pct': f'% ≥ {UMBRAL_BUENO}', 'iqr': 'Rango intercuartil'})
+        tabla.index.name = 'Género'
         with st.expander('Ver tabla con los valores'):
-            st.dataframe(tabla.round(2), width='stretch')
+            # Se mantienen los valores numéricos (para poder ordenar por columna) y el formato
+            # chileno lo pone el Styler solo en lo que se muestra
+            estilo_tabla = (tabla.style
+                            .format(decimal=',', thousands='.', precision=2)
+                            .format(decimal=',', thousands='.', precision=1,
+                                    subset=[f'% ≥ {UMBRAL_BUENO}']))  # igual que el KPI de arriba
+            st.dataframe(estilo_tabla, width='stretch')
 
 # ---------------- Evolución en el tiempo ----------------
 with tab_tiempo:

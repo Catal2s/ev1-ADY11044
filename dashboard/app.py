@@ -167,6 +167,7 @@ def estilo(fig, titulo, subtitulo, alto=500):
         template='simple_white', height=alto, margin=dict(l=10, r=40, t=110, b=50),
         font=dict(size=15), showlegend=False,
         hoverlabel=dict(font_size=14),
+        separators=',.',  # coma decimal y punto de miles, igual que los KPIs
     )
     fig.update_xaxes(tickfont=dict(size=14), title_font=dict(size=15))
     fig.update_yaxes(tickfont=dict(size=15), title_font=dict(size=15))
@@ -229,19 +230,46 @@ with tab_resumen:
                             width='stretch')
 
     with col_der:
-        comp = filtro.groupby('tipo')['rating'].agg(
-            mediana='median', pct=lambda x: (x >= UMBRAL_BUENO).mean() * 100, n='size').reset_index()
-        fig = go.Figure(go.Bar(
-            x=comp['tipo'], y=comp['pct'],
-            marker_color=[BUENO if t == comp.loc[comp['pct'].idxmax(), 'tipo'] else GRIS for t in comp['tipo']],
-            text=[f'{fmt(v)}%' for v in comp['pct']], textposition='outside', textfont=dict(size=16), width=0.5,
-            customdata=np.stack([comp['mediana'], comp['n']], axis=1),
-            hovertemplate='<b>%{x}</b><br>%{y:.1f}% bien evaluados<br>'
-                          'Mediana: %{customdata[0]:.1f}<br>%{customdata[1]} títulos<extra></extra>'))
-        fig.update_yaxes(title=f'% con rating ≥ {UMBRAL_BUENO}', range=[0, max(comp['pct'].max() * 1.2, 10)])
-        fig.update_xaxes(title=None)
-        st.plotly_chart(estilo(fig, 'Películas vs series', 'Porcentaje de títulos bien evaluados por tipo'),
-                        width='stretch')
+        if opcion_tipo != 'Ambos':
+            # Con un solo tipo la comparación no tiene sentido: mostramos cómo se reparten las notas
+            lo = np.floor(filtro['rating'].min() * 2) / 2
+            hi = np.ceil(filtro['rating'].max() * 2) / 2
+            if hi <= lo:
+                hi = lo + 0.5
+            bordes = np.arange(lo, hi + 0.5, 0.5)
+            conteo, bordes = np.histogram(filtro['rating'], bins=bordes)
+            centros = (bordes[:-1] + bordes[1:]) / 2
+            fig = go.Figure(go.Bar(
+                x=centros, y=conteo, width=0.46,
+                marker_color=[BUENO if b >= UMBRAL_BUENO else GRIS for b in bordes[:-1]],
+                customdata=np.stack([bordes[:-1], bordes[1:]], axis=1),
+                hovertemplate='<b>Rating %{customdata[0]:.1f} a %{customdata[1]:.1f}</b><br>'
+                              '%{y} títulos<extra></extra>'))
+            linea_referencia(fig, UMBRAL_BUENO, f'Umbral bien evaluado: {UMBRAL_BUENO}')
+            fig.update_xaxes(title='Rating (0–10)', dtick=1)
+            fig.update_yaxes(title='Cantidad de títulos')
+            sustantivo = 'las películas' if opcion_tipo == 'Solo películas' else 'las series'
+            titulo_hist = (f'Solo el {fmt(pct_bueno)}% de {sustantivo} llega a {UMBRAL_BUENO}'
+                           if pct_bueno < 50 else
+                           f'El {fmt(pct_bueno)}% de {sustantivo} supera el {UMBRAL_BUENO}')
+            st.plotly_chart(estilo(fig, titulo_hist,
+                                   f'Cantidad de títulos por rating ({opcion_tipo})'),
+                            width='stretch')
+        else:
+            comp = filtro.groupby('tipo')['rating'].agg(
+                mediana='median', pct=lambda x: (x >= UMBRAL_BUENO).mean() * 100, n='size').reset_index()
+            fig = go.Figure(go.Bar(
+                x=comp['tipo'], y=comp['pct'],
+                marker_color=[BUENO if t == comp.loc[comp['pct'].idxmax(), 'tipo'] else GRIS for t in comp['tipo']],
+                text=[f'{fmt(v)}%' for v in comp['pct']], textposition='outside', textfont=dict(size=16), width=0.5,
+                customdata=np.stack([comp['mediana'], comp['n']], axis=1),
+                hovertemplate='<b>%{x}</b><br>%{y:.1f}% bien evaluados<br>'
+                              'Mediana: %{customdata[0]:.1f}<br>%{customdata[1]} títulos<extra></extra>'))
+            fig.update_yaxes(title=f'% con rating ≥ {UMBRAL_BUENO}',
+                             range=[0, max(comp['pct'].max() * 1.2, 10)])
+            fig.update_xaxes(title=None)
+            st.plotly_chart(estilo(fig, 'Películas vs series', 'Porcentaje de títulos bien evaluados por tipo'),
+                            width='stretch')
 
     nota = (f'Se consideran solo títulos con al menos {min_votos} votos. '
             'Un título con varios géneros cuenta en cada uno de ellos.')
@@ -309,7 +337,7 @@ with tab_tiempo:
         titulo = (f'Las series se evalúan {fmt(abs(brecha), 1)} puntos '
                   f'{"mejor" if brecha > 0 else "peor"} que las películas')
         subtitulo += ' — brecha promedio en el período seleccionado'
-    fig.update_xaxes(title='Año de estreno', dtick=1)
+    fig.update_xaxes(title='Año de estreno', dtick=1, tickformat='d')  # 'd' evita que 2025 salga como 2.025
     # Rango calculado con los datos (con un mínimo de amplitud) para que ningún punto quede fuera
     lo, hi = tendencia['rating'].min(), tendencia['rating'].max()
     margen = max((hi - lo) * 0.15, 0.3)
